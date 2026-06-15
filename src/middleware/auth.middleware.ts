@@ -1,8 +1,16 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
-import config from "../config";
+import { type JwtPayload } from "jsonwebtoken";
+import { verifyAccessToken } from "../utils/jwt";
 import { pool } from "../db";
 import type { ROLE } from "../types";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JwtPayload;
+    }
+  }
+}
 
 const auth = (...roles: ROLE[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -14,19 +22,17 @@ const auth = (...roles: ROLE[]) => {
           success: false,
           message: "Unauthorized access!",
         });
+        return;
       }
 
-      const decoded = jwt.verify(
-        token as string,
-        config.access_token_secret as string,
-      ) as JwtPayload;
+      const decoded = verifyAccessToken(token) as JwtPayload;
 
       const userData = await pool.query(
         `
       SELECT * FROM users
-      WHERE email = $1
+      WHERE id = $1
       `,
-        [decoded.email],
+        [decoded.id],
       );
 
       const user = userData.rows[0];
@@ -36,6 +42,7 @@ const auth = (...roles: ROLE[]) => {
           success: false,
           message: "User not found!",
         });
+        return;
       }
 
       if (!user?.is_active) {
@@ -43,6 +50,7 @@ const auth = (...roles: ROLE[]) => {
           success: false,
           message: "Forbidden!",
         });
+        return;
       }
 
       if (roles.length && !roles.includes(user.role)) {
@@ -50,6 +58,7 @@ const auth = (...roles: ROLE[]) => {
           success: false,
           message: "Forbidden!",
         });
+        return;
       }
 
       req.user = decoded;
