@@ -41,7 +41,18 @@ const loginUserIntoDB = async (payload: {
   const accessToken = generateAccessToken(jwtPayload);
   const refreshToken = generateRefreshToken(jwtPayload);
 
-  return { accessToken, refreshToken };
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      is_active: user.is_active,
+      created_at: user.created_at,
+    },
+  };
 };
 
 const generateFreshToken = async (token: string) => {
