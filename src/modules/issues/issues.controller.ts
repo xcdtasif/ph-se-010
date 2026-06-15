@@ -37,7 +37,7 @@ const createIssue = async (req: Request, res: Response): Promise<void> => {
     sendResponse(res, {
       statusCode: StatusCodes.CREATED,
       success: true,
-      message: "Issue created successfully!",
+      message: "Issue created successfully",
       data: newIssue,
     });
   } catch (error: any) {
@@ -261,15 +261,12 @@ const updateIssue = async (req: Request, res: Response): Promise<void> => {
 
     if (
       updatePayload.status !== undefined &&
-      !["open", "in_progress", "resolved", "closed"].includes(
-        updatePayload.status,
-      )
+      !["open", "in_progress", "resolved"].includes(updatePayload.status)
     ) {
       sendResponse(res, {
         statusCode: StatusCodes.BAD_REQUEST,
         success: false,
-        message:
-          "Status must be 'open', 'in_progress', 'resolved', or 'closed'.",
+        message: "Status must be 'open', 'in_progress', or 'resolved'.",
       });
       return;
     }
@@ -282,7 +279,7 @@ const updateIssue = async (req: Request, res: Response): Promise<void> => {
     sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,
-      message: "Issue updated successfully!",
+      message: "Issue updated successfully",
       data: updatedIssue,
     });
   } catch (error: any) {
@@ -295,9 +292,67 @@ const updateIssue = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+const deleteIssue = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.role) {
+      sendResponse(res, {
+        statusCode: StatusCodes.UNAUTHORIZED,
+        success: false,
+        message: "User context not found.",
+      });
+      return;
+    }
+
+    if (user.role !== "maintainer") {
+      sendResponse(res, {
+        statusCode: StatusCodes.FORBIDDEN,
+        success: false,
+        message: "Access forbidden. Maintainers only.",
+      });
+      return;
+    }
+
+    const parsedId = parseInt(req.params.id as string, 10);
+    if (isNaN(parsedId)) {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message: "Invalid issue ID format.",
+      });
+      return;
+    }
+
+    const issue = await issuesService.getRawIssueByIdFromDB(parsedId);
+    if (!issue) {
+      sendResponse(res, {
+        statusCode: StatusCodes.NOT_FOUND,
+        success: false,
+        message: "Issue not found.",
+      });
+      return;
+    }
+
+    await issuesService.deleteIssueFromDB(parsedId);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Issue deleted successfully",
+    });
+  } catch (error: any) {
+    sendResponse(res, {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      success: false,
+      message: "Something went wrong while deleting the issue.",
+      error: error.message,
+    });
+  }
+};
+
 export const issuesController = {
   createIssue,
   getAllIssues,
   getSingleIssue,
   updateIssue,
+  deleteIssue,
 };

@@ -51,10 +51,7 @@ const getAllIssuesFromDB = async (queries: {
 
   if (
     status &&
-    (status === "open" ||
-      status === "in_progress" ||
-      status === "resolved" ||
-      status === "closed")
+    (status === "open" || status === "in_progress" || status === "resolved")
   ) {
     conditions.push(`status = $${paramIndex}`);
     values.push(status);
@@ -183,10 +180,15 @@ const updateIssueInDB = async (
   return result.rows[0];
 };
 
+const deleteIssueFromDB = async (id: number) => {
+  await pool.query("DELETE FROM issues WHERE id = $1", [id]);
+};
+
 export const issuesService = {
   createIssueInDB,
   getAllIssuesFromDB,
   getSingleIssueFromDB,
   getRawIssueByIdFromDB,
   updateIssueInDB,
+  deleteIssueFromDB,
 };
