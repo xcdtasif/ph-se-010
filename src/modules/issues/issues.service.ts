@@ -33,9 +33,9 @@ const createIssueInDB = async (payload: {
 };
 
 const getAllIssuesFromDB = async (queries: {
-  sort?: string;
-  type?: string;
-  status?: string;
+  sort?: string | undefined;
+  type?: string | undefined;
+  status?: string | undefined;
 }) => {
   const { sort = "newest", type, status } = queries;
 
@@ -49,7 +49,13 @@ const getAllIssuesFromDB = async (queries: {
     paramIndex++;
   }
 
-  if (status && (status === "open" || status === "in_progress" || status === "resolved" || status === "closed")) {
+  if (
+    status &&
+    (status === "open" ||
+      status === "in_progress" ||
+      status === "resolved" ||
+      status === "closed")
+  ) {
     conditions.push(`status = $${paramIndex}`);
     values.push(status);
     paramIndex++;
@@ -73,7 +79,9 @@ const getAllIssuesFromDB = async (queries: {
     return [];
   }
 
-  const reporterIds = Array.from(new Set(issues.map((issue) => issue.reporter_id)));
+  const reporterIds = Array.from(
+    new Set(issues.map((issue) => issue.reporter_id)),
+  );
 
   const usersResult = await pool.query(
     `
@@ -128,8 +136,57 @@ const getSingleIssueFromDB = async (id: number) => {
   };
 };
 
+const getRawIssueByIdFromDB = async (id: number) => {
+  const result = await pool.query("SELECT * FROM issues WHERE id = $1", [id]);
+  return result.rows[0] || null;
+};
+
+const updateIssueInDB = async (
+  id: number,
+  payload: {
+    title?: string | undefined;
+    description?: string | undefined;
+    type?: string | undefined;
+    status?: string | undefined;
+  },
+) => {
+  const fields = Object.keys(payload);
+  if (fields.length === 0) {
+    throw new Error("NO_FIELDS_PROVIDED");
+  }
+
+  const setClause: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  fields.forEach((field) => {
+    if ((payload as any)[field] !== undefined) {
+      setClause.push(`${field} = $${paramIndex}`);
+      values.push((payload as any)[field]);
+      paramIndex++;
+    }
+  });
+
+  setClause.push(`updated_at = NOW()`);
+
+  values.push(id);
+  const idParamIndex = paramIndex;
+
+  const query = `
+    UPDATE issues
+    SET ${setClause.join(", ")}
+    WHERE id = $${idParamIndex}
+    RETURNING *;
+  `;
+
+  const result = await pool.query(query, values);
+  return result.rows[0];
+};
+
 export const issuesService = {
   createIssueInDB,
   getAllIssuesFromDB,
   getSingleIssueFromDB,
+  getRawIssueByIdFromDB,
+  updateIssueInDB,
 };
