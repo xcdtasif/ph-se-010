@@ -5,7 +5,17 @@ import sendResponse from "../../utils/sendResponse";
 
 const createIssue = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, description, type } = req.body;
+    const { title, description, type, ...extraFields } = req.body;
+
+    if (Object.keys(extraFields).length > 0) {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message:
+          "Invalid request body. Only 'title', 'description', and 'type' are allowed.",
+      });
+      return;
+    }
 
     if (!title || !description || !type) {
       sendResponse(res, {
@@ -31,7 +41,7 @@ const createIssue = async (req: Request, res: Response): Promise<void> => {
       title,
       description,
       type,
-      reporter_id,
+      reporter_id: Number(reporter_id),
     });
 
     sendResponse(res, {
@@ -77,12 +87,12 @@ const createIssue = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-const getAllIssues = async (req: Request, res: Response): Promise<void> => {
+const getIssues = async (req: Request, res: Response): Promise<void> => {
   try {
     const sort =
       typeof req.query.sort === "string"
         ? (req.query.sort as string)
-        : undefined;
+        : "newest";
     const type =
       typeof req.query.type === "string"
         ? (req.query.type as string)
@@ -92,7 +102,42 @@ const getAllIssues = async (req: Request, res: Response): Promise<void> => {
         ? (req.query.status as string)
         : undefined;
 
-    const issues = await issuesService.getAllIssuesFromDB({
+    if (sort !== "newest" && sort !== "oldest") {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message:
+          "Invalid sort parameter. Allowed values are 'newest' or 'oldest'.",
+      });
+      return;
+    }
+
+    if (type !== undefined && type !== "bug" && type !== "feature_request") {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message:
+          "Invalid type parameter. Allowed values are 'bug' or 'feature_request'.",
+      });
+      return;
+    }
+
+    if (
+      status !== undefined &&
+      status !== "open" &&
+      status !== "in_progress" &&
+      status !== "resolved"
+    ) {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message:
+          "Invalid status parameter. Allowed values are 'open', 'in_progress', or 'resolved'.",
+      });
+      return;
+    }
+
+    const issues = await issuesService.getIssuesFromDB({
       sort,
       type,
       status,
@@ -114,7 +159,7 @@ const getAllIssues = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
+const getIssue = async (req: Request, res: Response): Promise<void> => {
   try {
     const parsedId = parseInt(req.params.id as string, 10);
 
@@ -127,7 +172,7 @@ const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const issue = await issuesService.getSingleIssueFromDB(parsedId);
+    const issue = await issuesService.getIssueFromDB(parsedId);
 
     sendResponse(res, {
       statusCode: StatusCodes.OK,
@@ -186,26 +231,54 @@ const updateIssue = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const { title, description, type, status, ...extraFields } = req.body;
+
+    const allowedFields = ["title", "description", "type", "status"];
+    const inputFields = Object.keys(req.body);
+    const hasInvalidFields = inputFields.some(
+      (field) => !allowedFields.includes(field),
+    );
+
+    if (hasInvalidFields) {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message:
+          "Invalid request body. Only 'title', 'description', 'type', and 'status' are allowed.",
+      });
+      return;
+    }
+
     if (user.role === "contributor") {
       if (issue.reporter_id !== user.id) {
         sendResponse(res, {
           statusCode: StatusCodes.FORBIDDEN,
           success: false,
-          message: "You are not authorized to update this issue.",
+          message:
+            "Access forbidden. Contributors can only update their own issues.",
         });
         return;
       }
       if (issue.status !== "open") {
         sendResponse(res, {
-          statusCode: StatusCodes.CONFLICT,
+          statusCode: StatusCodes.FORBIDDEN,
           success: false,
-          message: "Contributors can only update issues with an 'open' status.",
+          message:
+            "Access forbidden. Contributors can only update issues that are currently open.",
+        });
+        return;
+      }
+      if (status !== undefined) {
+        sendResponse(res, {
+          statusCode: StatusCodes.FORBIDDEN,
+          success: false,
+          message:
+            "Access forbidden. Contributors cannot modify the status of an issue.",
         });
         return;
       }
     }
 
-    const { title, description, type, status } = req.body;
     const updatePayload: any = {};
 
     if (title !== undefined) updatePayload.title = title;
@@ -351,8 +424,8 @@ const deleteIssue = async (req: Request, res: Response): Promise<void> => {
 
 export const issuesController = {
   createIssue,
-  getAllIssues,
-  getSingleIssue,
+  getIssues,
+  getIssue,
   updateIssue,
   deleteIssue,
 };

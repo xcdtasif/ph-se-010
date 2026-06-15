@@ -3,22 +3,34 @@ import { StatusCodes } from "http-status-codes";
 import { authService } from "./auth.service";
 import sendResponse from "../../utils/sendResponse";
 
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict" as const,
-  maxAge: 24 * 60 * 60 * 1000,
-};
-
 const registerUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, ...extraFields } = req.body;
+
+    if (Object.keys(extraFields).length > 0) {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message: `Invalid request body. Only 'name', 'email', 'password', and 'role' are allowed.`,
+      });
+      return;
+    }
 
     if (!name || !email || !password) {
       sendResponse(res, {
         statusCode: StatusCodes.BAD_REQUEST,
         success: false,
-        message: "Name, email, and password are required.",
+        message: "Name, email, and password are required fields.",
+      });
+      return;
+    }
+
+    if (role && role !== "contributor" && role !== "maintainer") {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message:
+          "Invalid role value provided. Allowed roles are: 'contributor', 'maintainer'.",
       });
       return;
     }
@@ -33,19 +45,10 @@ const registerUser = async (req: Request, res: Response): Promise<void> => {
     sendResponse(res, {
       statusCode: StatusCodes.CREATED,
       success: true,
-      message: "User registered successfully!",
+      message: "User registered successfully",
       data: newUser,
     });
   } catch (error: any) {
-    if (error.message === "INVALID_ROLE") {
-      sendResponse(res, {
-        statusCode: StatusCodes.BAD_REQUEST,
-        success: false,
-        message: "Role must be either 'contributor' or 'maintainer'.",
-      });
-      return;
-    }
-
     if (error.message === "EMAIL_TAKEN") {
       sendResponse(res, {
         statusCode: StatusCodes.BAD_REQUEST,
@@ -66,29 +69,36 @@ const registerUser = async (req: Request, res: Response): Promise<void> => {
 
 const loginUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const { email, password, ...extraFields } = req.body;
+
+    if (Object.keys(extraFields).length > 0) {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message:
+          "Invalid request body. Only 'email' and 'password' are allowed.",
+      });
+      return;
+    }
 
     if (!email || !password) {
       sendResponse(res, {
         statusCode: StatusCodes.BAD_REQUEST,
         success: false,
-        message: "Email and password are required.",
+        message: "Email and password are required fields.",
       });
       return;
     }
 
     const result = await authService.loginUserIntoDB({ email, password });
-    const { token, user } = result;
-
-    res.cookie("token", token, COOKIE_OPTIONS);
 
     sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,
-      message: "Login successful!",
+      message: "Login successful",
       data: {
-        token,
-        user,
+        token: result.token,
+        user: result.user,
       },
     });
   } catch (error: any) {

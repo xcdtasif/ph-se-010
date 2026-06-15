@@ -1,37 +1,41 @@
 import type { NextFunction, Request, Response } from "express";
-import { type JwtPayload } from "jsonwebtoken";
-import { verifyAccessToken } from "../utils/jwt";
+import jwt, { type JwtPayload } from "jsonwebtoken";
+import config from "../config";
 import { pool } from "../db";
-import type { ROLE } from "../types";
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
-  }
-}
-
-const auth = (...roles: ROLE[]) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+const auth = (...roles: string[]) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     try {
-      const token = req.cookies?.token;
+      const token = req.headers.authorization;
 
       if (!token) {
         res.status(401).json({
           success: false,
-          message: "Unauthorized access!",
+          message: "Unauthorized access! No token provided.",
         });
         return;
       }
 
-      const decoded = verifyAccessToken(token as string) as JwtPayload;
+      const secret = config.jwt_secret;
+      if (!secret) {
+        res.status(500).json({
+          success: false,
+          message: "Server environment variable configuration error.",
+        });
+        return;
+      }
+
+      const decoded = jwt.verify(token, secret) as JwtPayload;
 
       const userData = await pool.query(
         `
-      SELECT * FROM users
-      WHERE id = $1
-      `,
+        SELECT id, name, email, role FROM users
+        WHERE id = $1
+        `,
         [decoded.id],
       );
 
@@ -45,10 +49,10 @@ const auth = (...roles: ROLE[]) => {
 
       const user = userData.rows[0];
 
-      if (roles.length && !roles.includes(user.role as ROLE)) {
+      if (roles.length && !roles.includes(user.role)) {
         res.status(403).json({
           success: false,
-          message: "Forbidden!",
+          message: "Forbidden! You do not have the required permissions.",
         });
         return;
       }
@@ -57,7 +61,10 @@ const auth = (...roles: ROLE[]) => {
 
       next();
     } catch (error) {
-      next(error);
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized access! Invalid or expired token.",
+      });
     }
   };
 };

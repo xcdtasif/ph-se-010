@@ -6,7 +6,6 @@ import express, {
 } from "express";
 import { authRoute } from "./modules/auth/auth.route";
 import { issuesRoute } from "./modules/issues/issues.route";
-import cookieParser from "cookie-parser";
 import cors from "cors";
 import sendError from "./middleware/error.middleware";
 import addLog from "./middleware/log.middleware";
@@ -19,7 +18,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(addLog);
 
-app.use(cookieParser());
 app.use(
   cors({
     origin: "http://localhost:3000",

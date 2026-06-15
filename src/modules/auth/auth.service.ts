@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import config from "../../config";
 import { pool } from "../../db";
-import { generateAccessToken } from "../../utils/jwt";
 
 const loginUserIntoDB = async (payload: {
   email: string;
@@ -8,6 +9,7 @@ const loginUserIntoDB = async (payload: {
 }) => {
   const { email, password } = payload;
 
+  // Retrieve user using raw SQL
   const userData = await pool.query(
     `
     SELECT * FROM users
@@ -22,24 +24,33 @@ const loginUserIntoDB = async (payload: {
 
   const user = userData.rows[0];
 
+  // Compare passwords using bcrypt
   const matchPassword = await bcrypt.compare(password, user.password);
-
   if (!matchPassword) {
     throw new Error("Invalid credentials!");
   }
 
+  // Include only required fields in payload
   const jwtPayload = {
     id: Number(user.id),
     name: user.name,
     role: user.role,
   };
 
-  const token = generateAccessToken(jwtPayload);
+  const secret = config.jwt_secret;
+  if (!secret) {
+    throw new Error("JWT_SECRET is missing from environment variables");
+  }
+
+  // Generate standard JWT token
+  const token = jwt.sign(jwtPayload, secret, {
+    expiresIn: "1d",
+  });
 
   return {
     token,
     user: {
-      id: user.id,
+      id: Number(user.id),
       name: user.name,
       email: user.email,
       role: user.role,
@@ -57,7 +68,7 @@ const registerUserInDB = async (payload: {
 }) => {
   const { name, email, password, role } = payload;
 
-  let finalRole = role || "contributor";
+  const finalRole = role || "contributor";
   if (finalRole !== "contributor" && finalRole !== "maintainer") {
     throw new Error("INVALID_ROLE");
   }
@@ -71,6 +82,7 @@ const registerUserInDB = async (payload: {
     throw new Error("EMAIL_TAKEN");
   }
 
+  // Hash password with standard salt rounds
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const newUserResult = await pool.query(
@@ -82,7 +94,11 @@ const registerUserInDB = async (payload: {
     [name, email, hashedPassword, finalRole],
   );
 
-  return newUserResult.rows[0];
+  // Convert DB id to standard numeric format
+  const savedUser = newUserResult.rows[0];
+  savedUser.id = Number(savedUser.id);
+
+  return savedUser;
 };
 
 export const authService = {

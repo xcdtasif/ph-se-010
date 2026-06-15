@@ -24,15 +24,25 @@ const createIssueInDB = async (payload: {
     `
     INSERT INTO issues (title, description, type, reporter_id)
     VALUES ($1, $2, $3, $4)
-    RETURNING *;
+    RETURNING id, title, description, type, status, reporter_id, created_at, updated_at;
     `,
     [title, description, type, reporter_id],
   );
 
-  return result.rows[0];
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    title: row.title,
+    description: row.description,
+    type: row.type,
+    status: row.status,
+    reporter_id: Number(row.reporter_id),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 };
 
-const getAllIssuesFromDB = async (queries: {
+const getIssuesFromDB = async (queries: {
   sort?: string | undefined;
   type?: string | undefined;
   status?: string | undefined;
@@ -43,22 +53,19 @@ const getAllIssuesFromDB = async (queries: {
   const values: any[] = [];
   let paramIndex = 1;
 
-  if (type && (type === "bug" || type === "feature_request")) {
+  if (type) {
     conditions.push(`type = $${paramIndex}`);
     values.push(type);
     paramIndex++;
   }
 
-  if (
-    status &&
-    (status === "open" || status === "in_progress" || status === "resolved")
-  ) {
+  if (status) {
     conditions.push(`status = $${paramIndex}`);
     values.push(status);
     paramIndex++;
   }
 
-  let baseQuery = `SELECT * FROM issues`;
+  let baseQuery = `SELECT id, title, description, type, status, reporter_id, created_at, updated_at FROM issues`;
   if (conditions.length > 0) {
     baseQuery += ` WHERE ${conditions.join(" AND ")}`;
   }
@@ -77,8 +84,21 @@ const getAllIssuesFromDB = async (queries: {
   }
 
   const reporterIds = Array.from(
-    new Set(issues.map((issue) => issue.reporter_id)),
+    new Set(issues.map((issue) => issue.reporter_id).filter(Boolean)),
   );
+
+  if (reporterIds.length === 0) {
+    return issues.map((issue) => ({
+      id: Number(issue.id),
+      title: issue.title,
+      description: issue.description,
+      type: issue.type,
+      status: issue.status,
+      reporter: null,
+      created_at: issue.created_at,
+      updated_at: issue.updated_at,
+    }));
+  }
 
   const usersResult = await pool.query(
     `
@@ -89,23 +109,30 @@ const getAllIssuesFromDB = async (queries: {
   );
 
   const reporterMap = usersResult.rows.reduce((map: any, user: any) => {
-    map[user.id] = user;
+    map[user.id] = {
+      id: Number(user.id),
+      name: user.name,
+      role: user.role,
+    };
     return map;
   }, {});
 
-  return issues.map((issue) => {
-    const { reporter_id, ...issueData } = issue;
-    return {
-      ...issueData,
-      reporter: reporterMap[reporter_id] || null,
-    };
-  });
+  return issues.map((issue) => ({
+    id: Number(issue.id),
+    title: issue.title,
+    description: issue.description,
+    type: issue.type,
+    status: issue.status,
+    reporter: reporterMap[issue.reporter_id] || null,
+    created_at: issue.created_at,
+    updated_at: issue.updated_at,
+  }));
 };
 
-const getSingleIssueFromDB = async (id: number) => {
+const getIssueFromDB = async (id: number) => {
   const issueResult = await pool.query(
     `
-    SELECT * FROM issues 
+    SELECT id, title, description, type, status, reporter_id, created_at, updated_at FROM issues 
     WHERE id = $1
     `,
     [id],
@@ -125,26 +152,48 @@ const getSingleIssueFromDB = async (id: number) => {
     [issue.reporter_id],
   );
 
-  const { reporter_id, ...issueData } = issue;
+  const user = userResult.rows[0];
 
   return {
-    ...issueData,
-    reporter: userResult.rows[0] || null,
+    id: Number(issue.id),
+    title: Number(issue.id),
+    description: issue.description,
+    type: issue.type,
+    status: issue.status,
+    reporter: user
+      ? { id: Number(user.id), name: user.name, role: user.role }
+      : null,
+    created_at: issue.created_at,
+    updated_at: issue.updated_at,
   };
 };
 
 const getRawIssueByIdFromDB = async (id: number) => {
-  const result = await pool.query("SELECT * FROM issues WHERE id = $1", [id]);
-  return result.rows[0] || null;
+  const result = await pool.query(
+    "SELECT id, title, description, type, status, reporter_id, created_at, updated_at FROM issues WHERE id = $1",
+    [id],
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    title: row.title,
+    description: row.description,
+    type: row.type,
+    status: row.status,
+    reporter_id: Number(row.reporter_id),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 };
 
 const updateIssueInDB = async (
   id: number,
   payload: {
-    title?: string | undefined;
-    description?: string | undefined;
-    type?: string | undefined;
-    status?: string | undefined;
+    title?: string;
+    description?: string;
+    type?: string;
+    status?: string;
   },
 ) => {
   const fields = Object.keys(payload);
@@ -173,11 +222,21 @@ const updateIssueInDB = async (
     UPDATE issues
     SET ${setClause.join(", ")}
     WHERE id = $${idParamIndex}
-    RETURNING *;
+    RETURNING id, title, description, type, status, reporter_id, created_at, updated_at;
   `;
 
   const result = await pool.query(query, values);
-  return result.rows[0];
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    title: row.title,
+    description: row.description,
+    type: row.type,
+    status: row.status,
+    reporter_id: Number(row.reporter_id),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 };
 
 const deleteIssueFromDB = async (id: number) => {
@@ -186,8 +245,8 @@ const deleteIssueFromDB = async (id: number) => {
 
 export const issuesService = {
   createIssueInDB,
-  getAllIssuesFromDB,
-  getSingleIssueFromDB,
+  getIssuesFromDB,
+  getIssueFromDB,
   getRawIssueByIdFromDB,
   updateIssueInDB,
   deleteIssueFromDB,

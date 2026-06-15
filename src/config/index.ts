@@ -6,12 +6,9 @@ dotenv.config({
 });
 
 const config = {
-  port: process.env.PORT,
-
+  port: process.env.PORT || 3000,
   connection_string: process.env.CONNECTION_STRING as string,
-
-  access_token_secret: process.env.ACCESS_TOKEN_SECRET,
-  refresh_token_secret: process.env.REFRESH_TOKEN_SECRET,
+  jwt_secret: process.env.JWT_SECRET,
 };
 
 export default config;
