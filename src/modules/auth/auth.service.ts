@@ -38,7 +38,6 @@ const loginUserIntoDB = async (payload: {
     role: user.role,
   };
 
-  // Using our new utility helpers!
   const accessToken = generateAccessToken(jwtPayload);
   const refreshToken = generateRefreshToken(jwtPayload);
 
