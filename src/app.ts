@@ -1,18 +1,17 @@
+import "./config/index";
 import express, {
   type Application,
   type Request,
   type Response,
 } from "express";
-import config from "./config";
 import { authRoute } from "./modules/auth/auth.route";
 import { issuesRoute } from "./modules/issues/issues.route";
-import CookieParser from "cookie-parser";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import sendError from "./middleware/error.middleware";
 import addLog from "./middleware/log.middleware";
 
 const app: Application = express();
-const port = config.port;
 
 app.use(express.json());
 app.use(express.text());
@@ -20,7 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(addLog);
 
-app.use(CookieParser());
+app.use(cookieParser());
 app.use(
   cors({
     origin: "http://localhost:3000",

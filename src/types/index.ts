@@ -12,4 +12,4 @@ export type TJwtPayload = {
   role: string;
 };
 
-export type ROLE = "admin" | "agent" | "user";
+export type ROLE = "contributor" | "maintainer";

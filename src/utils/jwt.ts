@@ -3,32 +3,27 @@ import type { TJwtPayload } from "../types";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
 export const generateAccessToken = (payload: TJwtPayload): string => {
-  return jwt.sign(payload, config.access_token_secret as string, {
+  const secret = config.access_token_secret;
+  if (!secret) {
+    throw new Error(
+      "ACCESS_TOKEN_SECRET is missing from environment variables",
+    );
+  }
+  return jwt.sign(payload, secret, {
     expiresIn: "1d",
-  });
-};
-
-export const generateRefreshToken = (payload: TJwtPayload): string => {
-  return jwt.sign(payload, config.refresh_token_secret as string, {
-    expiresIn: "10d",
   });
 };
 
 export const verifyAccessToken = (token: string): JwtPayload | string => {
   try {
-    return jwt.verify(token, config.access_token_secret as string);
+    const secret = config.access_token_secret;
+    if (!secret) {
+      throw new Error(
+        "ACCESS_TOKEN_SECRET is missing from environment variables",
+      );
+    }
+    return jwt.verify(token, secret);
   } catch (error) {
     throw new Error("Invalid access token!");
-  }
-};
-
-export const verifyRefreshToken = (token: string): JwtPayload => {
-  try {
-    return jwt.verify(
-      token,
-      config.refresh_token_secret as string,
-    ) as JwtPayload;
-  } catch (error) {
-    throw new Error("Invalid or expired refresh token!");
   }
 };

@@ -7,7 +7,7 @@ const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "strict" as const,
-  maxAge: 10 * 24 * 60 * 60 * 1000,
+  maxAge: 24 * 60 * 60 * 1000,
 };
 
 const registerUser = async (req: Request, res: Response): Promise<void> => {
@@ -78,16 +78,16 @@ const loginUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     const result = await authService.loginUserIntoDB({ email, password });
-    const { accessToken, refreshToken, user } = result;
+    const { token, user } = result;
 
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("token", token, COOKIE_OPTIONS);
 
     sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,
       message: "Login successful!",
       data: {
-        accessToken,
+        token,
         user,
       },
     });
@@ -110,68 +110,7 @@ const loginUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-const refreshAccessToken = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    const refreshToken = req.cookies?.refreshToken;
-
-    if (!refreshToken) {
-      sendResponse(res, {
-        statusCode: StatusCodes.UNAUTHORIZED,
-        success: false,
-        message: "Refresh token is missing. Please log in again.",
-      });
-      return;
-    }
-
-    const { accessToken } = await authService.generateFreshToken(refreshToken);
-
-    sendResponse(res, {
-      statusCode: StatusCodes.OK,
-      success: true,
-      message: "Access token refreshed successfully!",
-      data: {
-        accessToken,
-      },
-    });
-  } catch (error: any) {
-    sendResponse(res, {
-      statusCode: StatusCodes.UNAUTHORIZED,
-      success: false,
-      message: "Session expired or invalid token. Please re-authenticate.",
-      error: error.message,
-    });
-  }
-};
-
-const logoutUser = async (req: Request, res: Response): Promise<void> => {
-  try {
-    res.clearCookie("refreshToken", {
-      httpOnly: COOKIE_OPTIONS.httpOnly,
-      secure: COOKIE_OPTIONS.secure,
-      sameSite: COOKIE_OPTIONS.sameSite,
-    });
-
-    sendResponse(res, {
-      statusCode: StatusCodes.OK,
-      success: true,
-      message: "Logged out successfully!",
-    });
-  } catch (error: any) {
-    sendResponse(res, {
-      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
-      success: false,
-      message: "Failed to logout cleanly.",
-      error: error.message,
-    });
-  }
-};
-
 export const authController = {
   registerUser,
   loginUser,
-  refreshAccessToken,
-  logoutUser,
 };

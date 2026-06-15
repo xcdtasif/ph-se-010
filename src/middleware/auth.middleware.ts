@@ -15,7 +15,7 @@ declare global {
 const auth = (...roles: ROLE[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const token = req.headers.authorization;
+      const token = req.cookies?.token;
 
       if (!token) {
         res.status(401).json({
@@ -25,7 +25,7 @@ const auth = (...roles: ROLE[]) => {
         return;
       }
 
-      const decoded = verifyAccessToken(token) as JwtPayload;
+      const decoded = verifyAccessToken(token as string) as JwtPayload;
 
       const userData = await pool.query(
         `
@@ -35,8 +35,6 @@ const auth = (...roles: ROLE[]) => {
         [decoded.id],
       );
 
-      const user = userData.rows[0];
-
       if (userData.rows.length === 0) {
         res.status(404).json({
           success: false,
@@ -45,15 +43,9 @@ const auth = (...roles: ROLE[]) => {
         return;
       }
 
-      if (!user?.is_active) {
-        res.status(403).json({
-          success: false,
-          message: "Forbidden!",
-        });
-        return;
-      }
+      const user = userData.rows[0];
 
-      if (roles.length && !roles.includes(user.role)) {
+      if (roles.length && !roles.includes(user.role as ROLE)) {
         res.status(403).json({
           success: false,
           message: "Forbidden!",
