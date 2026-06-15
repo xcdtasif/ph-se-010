@@ -77,6 +77,85 @@ const createIssue = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+const getAllIssues = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const sort =
+      typeof req.query.sort === "string"
+        ? (req.query.sort as string)
+        : undefined;
+    const type =
+      typeof req.query.type === "string"
+        ? (req.query.type as string)
+        : undefined;
+    const status =
+      typeof req.query.status === "string"
+        ? (req.query.status as string)
+        : undefined;
+
+    const issues = await issuesService.getAllIssuesFromDB({
+      sort,
+      type,
+      status,
+    });
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Issues retrived successfully",
+      data: issues,
+    });
+  } catch (error: any) {
+    sendResponse(res, {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      success: false,
+      message: "Something went wrong while retrieving issues.",
+      error: error.message,
+    });
+  }
+};
+
+const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsedId = parseInt(req.params.id, 10);
+
+    if (isNaN(parsedId)) {
+      sendResponse(res, {
+        statusCode: StatusCodes.BAD_REQUEST,
+        success: false,
+        message: "Invalid issue ID format.",
+      });
+      return;
+    }
+
+    const issue = await issuesService.getSingleIssueFromDB(parsedId);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Issue retrived successfully",
+      data: issue,
+    });
+  } catch (error: any) {
+    if (error.message === "NOT_FOUND") {
+      sendResponse(res, {
+        statusCode: StatusCodes.NOT_FOUND,
+        success: false,
+        message: "Issue not found.",
+      });
+      return;
+    }
+
+    sendResponse(res, {
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      success: false,
+      message: "Something went wrong while retrieving the issue.",
+      error: error.message,
+    });
+  }
+};
+
 export const issuesController = {
   createIssue,
+  getAllIssues,
+  getSingleIssue,
 };
