@@ -4,7 +4,7 @@ import express, {
   type Response,
 } from "express";
 import config from "./config";
-// import { authRoute } from "./modules/auth/auth.route";
+import { authRoute } from "./modules/auth/auth.route";
 import CookieParser from "cookie-parser";
 import cors from "cors";
 import sendError from "./middleware/error.middleware";
@@ -33,7 +33,7 @@ app.get("/", (req: Request, res: Response) => {
   });
 });
 
-// app.use("/api/auth", authRoute);
+app.use("/api/auth", authRoute);
 
 app.use(sendError);
 

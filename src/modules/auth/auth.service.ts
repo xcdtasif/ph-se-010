@@ -80,7 +80,44 @@ const generateFreshToken = async (token: string) => {
   return { accessToken };
 };
 
+const registerUserInDB = async (payload: {
+  name: string;
+  email: string;
+  password: string;
+  role?: string;
+}) => {
+  const { name, email, password, role } = payload;
+
+  let finalRole = role || "contributor";
+  if (finalRole !== "contributor" && finalRole !== "maintainer") {
+    throw new Error("INVALID_ROLE");
+  }
+
+  const existingUser = await pool.query(
+    `SELECT id FROM users WHERE email = $1`,
+    [email],
+  );
+
+  if (existingUser.rows.length > 0) {
+    throw new Error("EMAIL_TAKEN");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const newUserResult = await pool.query(
+    `
+    INSERT INTO users (name, email, password, role)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, name, email, role, is_active, created_at;
+    `,
+    [name, email, hashedPassword, finalRole],
+  );
+
+  return newUserResult.rows[0];
+};
+
 export const authService = {
   loginUserIntoDB,
   generateFreshToken,
+  registerUserInDB,
 };
