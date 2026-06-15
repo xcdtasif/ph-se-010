@@ -8,15 +8,12 @@ import { authRoute } from "./modules/auth/auth.route";
 import { issuesRoute } from "./modules/issues/issues.route";
 import cors from "cors";
 import sendError from "./middleware/error.middleware";
-import addLog from "./middleware/log.middleware";
 
 const app: Application = express();
 
 app.use(express.json());
 app.use(express.text());
 app.use(express.urlencoded({ extended: true }));
-
-app.use(addLog);
 
 app.use(
   cors({

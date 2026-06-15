@@ -4,7 +4,7 @@
 
 A REST API platform for software teams to report bugs, suggest features, and coordinate resolutions. Built with Node.js, TypeScript, Express.js, and PostgreSQL.
 
-**Live URL:**
+**Live URL:** https://ph-se-010-psi.vercel.app
 
 ---
 
@@ -56,7 +56,7 @@ A REST API platform for software teams to report bugs, suggest features, and coo
 | `@types/express`      | ^5.0.6  | TypeScript types for Express      |
 | `@types/jsonwebtoken` | ^9.0.10 | TypeScript types for jsonwebtoken |
 | `@types/pg`           | ^8.20.0 | TypeScript types for pg           |
-| `tsup`                | ^6.5.0  | TypeScript bundler                |
+| `tsup`                | ^8.5.1  | TypeScript bundler                |
 | `tsx`                 | ^4.22.4 | TypeScript execution for dev      |
 | `typescript`          | ^6.0.3  | TypeScript compiler               |
 
@@ -104,7 +104,7 @@ npm run dev
 ### Base URL
 
 ```
-https://your-deployment-url.vercel.app/api
+https://ph-se-010-psi.vercel.app/api
 ```
 
 ### Authorization
